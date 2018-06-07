@@ -41,3 +41,24 @@ func ImageFromPath(path string) (*Image, error) {
 
 	return &img, nil
 }
+
+// ImageFromMemory reads image file data represented by the specified byte
+// slice.
+func ImageFromMemory(buf []byte) (*Image, error) {
+	cBuf := C.CBytes(buf)
+	defer C.free(cBuf)
+
+	img := Image{
+		image: C.load_image_from_memory_color((*C.uchar)(cBuf),
+			C.int(len(buf)), 0, 0),
+	}
+
+	if img.image.data == nil {
+		return nil, errUnableToLoadImage
+	}
+
+	img.Width = int(img.image.w)
+	img.Height = int(img.image.h)
+
+	return &img, nil
+}
