@@ -1,10 +1,11 @@
 package darknet
 
-// #include <stdlib.h>
-//
-// #include <darknet.h>
-//
-// #include "network.h"
+/*
+#cgo CFLAGS: -I /usr/include
+#include <stdlib.h>
+#include <darknet.h>
+#include "network.h"
+*/
 import "C"
 import (
 	"errors"
@@ -26,6 +27,17 @@ type YOLONetwork struct {
 	cNet                *C.network
 	hierarchalThreshold float32
 	nms                 float32
+
+	// GPU input buffer size
+	Width, Height, Colors int32
+	GpuInput              *float32
+}
+
+// DetectionResult represents the inference results from the network.
+type DetectionResult struct {
+	Detections           []*Detection
+	NetworkOnlyTimeTaken time.Duration
+	OverallTimeTaken     time.Duration
 }
 
 var errNetworkNotInit = errors.New("network not initialised")
@@ -38,9 +50,15 @@ func (n *YOLONetwork) Init() error {
 	wFile := C.CString(n.WeightsFile)
 	defer C.free(unsafe.Pointer(wFile))
 
+	var ns C.netSize
 	// GPU device ID must be set before `load_network()` is invoked.
 	C.cuda_set_device(C.int(n.GPUDeviceIndex))
-	n.cNet = C.load_network(nCfg, wFile, 0)
+	// darknet > network.c > load_network()
+	n.cNet = C.load_network(nCfg, wFile, 0, &ns)
+	n.Width = int32(ns.width)
+	n.Height = int32(ns.height)
+	n.Colors = int32(ns.colors)
+	n.GpuInput = (*float32)(ns.input)
 
 	if n.cNet == nil {
 		return errUnableToInitNetwork
@@ -75,18 +93,18 @@ func (n *YOLONetwork) Close() error {
 }
 
 // Detect specified image.
-func (n *YOLONetwork) Detect(img *Image) (*DetectionResult, error) {
+func (n *YOLONetwork) Detect(srcw, srch int) (*DetectionResult, error) {
 	if n.cNet == nil {
 		return nil, errNetworkNotInit
 	}
 
 	startTime := time.Now()
-	result := C.perform_network_detect(n.cNet, &img.image, C.int(n.Classes),
+	result := C.perform_network_detect(n.cNet, C.int(srcw), C.int(srch), C.int(n.Classes),
 		C.float(n.Threshold), C.float(n.hierarchalThreshold), C.float(n.nms))
 	endTime := time.Now()
 	defer C.free_detections(result.detections, result.detections_len)
 
-	ds := makeDetections(img, result.detections, int(result.detections_len),
+	ds := makeDetections(srcw, srch, result.detections, int(result.detections_len),
 		n.Threshold, n.Classes, n.ClassNames)
 
 	endTimeOverall := time.Now()

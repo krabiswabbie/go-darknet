@@ -1,7 +1,10 @@
 package darknet
 
-// #include <stdlib.h>
-// #include "class_name.h"
+/*
+#cgo CFLAGS: -I /usr/include
+#include <stdlib.h>
+#include "class_name.h"
+*/
 import "C"
 import "unsafe"
 

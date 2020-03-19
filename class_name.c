@@ -1,5 +1,4 @@
 #include <stdlib.h>
-
 #include <darknet.h>
 
 void free_class_names(char **names)
