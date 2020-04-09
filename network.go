@@ -52,9 +52,9 @@ func (n *YOLONetwork) Init() error {
 
 	var ns C.netSize
 	// GPU device ID must be set before `load_network()` is invoked.
-	C.cuda_set_device(C.int(n.GPUDeviceIndex))
+	// C.cuda_set_device(C.int(n.GPUDeviceIndex))
 	// darknet > network.c > load_network()
-	n.cNet = C.load_network(nCfg, wFile, 0, &ns)
+	n.cNet = C.load_network(nCfg, wFile, C.int(n.GPUDeviceIndex), &ns)
 	n.Width = int32(ns.width)
 	n.Height = int32(ns.height)
 	n.Colors = int32(ns.colors)
